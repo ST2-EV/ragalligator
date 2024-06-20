@@ -3,14 +3,17 @@ from typing import List
 import mesop as me
 import mesop.labs as mel
 
+from page_functions.vectorstore import create_vectorstore
+
 
 @me.stateclass
 class State:
     url_textarea: str = ""
     urls: str
+    vectorstore: str
 
 
-def vectorize_click(event: me.ClickEvent):
+def create_vectorstore_click(event: me.ClickEvent):
     state = me.state(State)
     state.urls = state.url_textarea.split(",")
     me.navigate("/vectorstore")
@@ -35,22 +38,32 @@ def data_page():
         on_input=url_textarea_input,
     )
     me.button(
-        "Vectorize",
+        "Create Vectorstore",
         color="primary",
         type="flat",
         style=me.Style(
             margin=me.Margin.all(7),
             display="block",
         ),
-        on_click=vectorize_click,
+        on_click=create_vectorstore_click,
     )
+
+
+def vectorize_click(event: me.ClickEvent):
+    state = me.state(State)
+    state.vectorstore = create_vectorstore(state.urls)
+    me.navigate("/chat")
 
 
 @me.page(path="/vectorstore", title="RAG Alligator | Vectorstore")
 def vectorstore_page():
-    state = me.state(State)
-    me.text("Vectorstore Page")
-    print(state.urls)
+    me.button(
+        "Vectorize",
+        color="primary",
+        type="flat",
+        style=me.Style(margin=me.Margin.all(7), display="block"),
+        on_click=vectorize_click,
+    )
 
 
 @me.page(
@@ -58,8 +71,8 @@ def vectorstore_page():
     title="RAG Alligator | Chat",
 )
 def chat_page():
+    me.text(text="Chat Page")
     # mel.chat(transform, title="RAG Alligator Chat", bot_user="Bot")
-    pass
 
 
 @me.page(
