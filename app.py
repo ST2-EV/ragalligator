@@ -3,7 +3,11 @@ from typing import List
 import mesop as me
 import mesop.labs as mel
 
+from page_functions.chat import create_rag_model
 from page_functions.vectorstore import create_vectorstore
+
+RAG_MODEL = None
+VECTOR_STORE = None
 
 
 @me.stateclass
@@ -50,8 +54,9 @@ def data_page():
 
 
 def vectorize_click(event: me.ClickEvent):
+    global VECTOR_STORE
     state = me.state(State)
-    state.vectorstore = create_vectorstore(state.urls)
+    VECTOR_STORE = create_vectorstore(state.urls)
     me.navigate("/chat")
 
 
@@ -66,13 +71,21 @@ def vectorstore_page():
     )
 
 
+def transform(input: str, history: list[mel.ChatMessage]):
+    global RAG_MODEL
+    res = RAG_MODEL.run(input)
+    yield res + " "
+
+
 @me.page(
     path="/chat",
     title="RAG Alligator | Chat",
 )
 def chat_page():
-    me.text(text="Chat Page")
-    # mel.chat(transform, title="RAG Alligator Chat", bot_user="Bot")
+    global RAG_MODEL, VECTOR_STORE
+    if RAG_MODEL is None and VECTOR_STORE is not None:
+        RAG_MODEL = create_rag_model(VECTOR_STORE)
+    mel.chat(transform, title="RAG Alligator Chat", bot_user="Bot")
 
 
 @me.page(
