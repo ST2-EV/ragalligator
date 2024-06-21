@@ -1,4 +1,5 @@
 import os
+import uuid
 from typing import Dict, List
 
 import cohere
@@ -42,6 +43,18 @@ class Vectorstore:
                         "url": raw_document["url"],
                     }
                 )
+                corpus_data.append(
+                    {
+                        "doc_id": str(uuid.uuid4()),
+                        "contents": str(chunk),
+                        "metadata": {
+                            "title": raw_document["title"],
+                            "url": raw_document["url"],
+                        },
+                    }
+                )
+        corpus_df = pd.DataFrame(corpus_data)
+        corpus_df.to_parquet("data/corpus.parquet")
 
     def embed(self) -> None:
         """
