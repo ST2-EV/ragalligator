@@ -48,11 +48,14 @@ def generate_qa(
 
 
 def generate_default_qa_set(
-    corpus_path="data/corpus.parquet", content_size=5, question_num_per_content=1
+    corpus_path="data/corpus.parquet",
+    content_size=5,
+    question_num_per_content=1,
+    temperature=1.0,
 ):
     corpus_df = pd.read_parquet(corpus_path)
     llm = Cohere(
-        api_key=os.getenv("COHERE_API_KEY"), model="command-r", temperature=1.0
+        api_key=os.getenv("COHERE_API_KEY"), model="command-r", temperature=temperature
     )
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)

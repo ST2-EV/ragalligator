@@ -22,6 +22,65 @@ CONFIG_PREAMBLE = None
 CONFIG_TEMPERATURE = None
 CONFIG_MODEL = "command-r"
 
+QA_CONTENT_SIZE = 5
+QA_QUESTION_NUM_PER_CONTENT = 1
+QA_PROMPT = """You're an AI tasked to convert Text into a question and answer set.
+Cover as many details from Text as possible in the QnA set.
+
+Instructions:
+1. Both Questions and Answers MUST BE extracted from given Text
+2. Answers must be full sentences
+3. Questions should be as detailed as possible from Text
+4. Output must always have the provided number of QnAs
+5. Create questions that ask about information from the Text
+6. MUST include specific keywords from the Text.
+7. Do not mention any of these in the questions: "in the given text", "in the provided information", etc.
+
+Question examples:
+1. How do owen and riggs know each other?
+2. What does the word fore "mean" in golf?
+3. What makes charging bull in nyc popular to tourists?
+4. What kind of pistol does the army use?
+5. Who was the greatest violin virtuoso in the romantic period?
+<|separator|>
+
+Text:
+<|text_start|>
+Mark Hamill as Luke Skywalker : One of the last living Jedi , trained by Obi - Wan and Yoda , who is also a skilled X-wing fighter pilot allied with the Rebellion .
+Harrison Ford as Han Solo : A rogue smuggler , who aids the Rebellion against the Empire . Han is Luke and Leia 's friend , as well as Leia 's love interest .
+Carrie Fisher as Leia Organa : The former Princess of the destroyed planet Alderaan , who joins the Rebellion ; Luke 's twin sister , and Han 's love interest .
+Billy Dee Williams as Lando Calrissian : The former Baron Administrator of Cloud City and one of Han 's friends who aids the Rebellion .
+Anthony Daniels as C - 3PO : A humanoid protocol droid , who sides with the Rebellion .
+Peter Mayhew as Chewbacca : A Wookiee who is Han 's longtime friend , who takes part in the Rebellion .
+Kenny Baker as R2 - D2 : An astromech droid , bought by Luke ; and long - time friend to C - 3PO . He also portrays a GONK power droid in the background .
+Ian McDiarmid as the Emperor : The evil founding supreme ruler of the Galactic Empire , and Vader 's Sith Master .
+Frank Oz as Yoda : The wise , centuries - old Grand Master of the Jedi , who is Luke 's self - exiled Jedi Master living on Dagobah . After dying , he reappears to Luke as a Force - ghost . Yoda 's Puppetry was assisted by Mike Quinn .
+David Prowse as Darth Vader / Anakin Skywalker : A powerful Sith lord and the second in command of the Galactic Empire ; Luke and Leia 's father .
+<|text_end|>
+Output with 4 QnAs:
+<|separator|>
+
+[Q]: who played luke father in return of the jedi
+[A]: David Prowse acted as Darth Vader, a.k.a Anakin Skywalker, which is Luke and Leia's father.
+[Q]: Who is Han Solo's best friend? And what species is he?
+[A]: Han Solo's best friend is Chewbacca, who is a Wookiee.
+[Q]: Who played luke's teacher in the return of the jedi
+[A]: Yoda, the wise, centuries-old Grand Master of the Jedi, who is Luke's self-exiled Jedi Master living on Dagobah, was played by Frank Oz.
+Also, there is a mention of Obi-Wan Kenobi, who trained Luke Skywalker.
+But I can't find who played Obi-Wan Kenobi in the given text.
+[Q]: Where Yoda lives in the return of the jedi?
+[A]: Yoda, the Jedi Master, lives on Dagobah.
+<|separator|>
+
+Text:
+<|text_start|>
+{{text}}
+<|text_end|>
+Output with {{num_questions}} QnAs:
+<|separator|>
+"""
+QA_TEMPERATURE = 1.0
+
 
 @me.stateclass
 class State:
@@ -113,6 +172,37 @@ def save_qa_data(event: me.ClickEvent):
     df.to_parquet(EVALUATION_SET_PATH)
 
 
+def set_content_size(event: me.InputEvent):
+    global QA_CONTENT_SIZE
+    QA_CONTENT_SIZE = event.value
+
+
+def set_num_questions(event: me.InputEvent):
+    global QA_QUESTION_NUM_PER_CONTENT
+    QA_QUESTION_NUM_PER_CONTENT = event.value
+
+
+def set_qa_prompt(event: me.InputEvent):
+    global QA_PROMPT
+    QA_PROMPT = event.value
+
+
+def set_qa_temperature(event: me.InputEvent):
+    global QA_TEMPERATURE
+    QA_TEMPERATURE = event.value
+
+
+def generate_eval_click(event: me.ClickEvent):
+    global QA_SET_JSON, VECTOR_STORE_PATH, QA_CONTENT_SIZE, QA_QUESTION_NUM_PER_CONTENT, QA_TEMPERATURE
+    QA_SET_JSON = generate_default_qa_set(
+        VECTOR_STORE_PATH,
+        int(QA_CONTENT_SIZE),
+        int(QA_QUESTION_NUM_PER_CONTENT),
+        float(QA_TEMPERATURE),
+    )  # will create the parquet file
+    print("generating qa set")
+
+
 @me.page(
     path="/eval/create",
     title="RAG Alligator | Evaluation",
@@ -120,11 +210,44 @@ def save_qa_data(event: me.ClickEvent):
 def eval_create_page():
     global QA_SET_JSON, CORPUS_JSON
     if QA_SET_JSON is None:
+        me.text("Evaluation Set Creator", type="headline-4")
         if not os.path.exists(EVALUATION_SET_PATH):
-            QA_SET_JSON = generate_default_qa_set(
-                VECTOR_STORE_PATH
-            )  # will create the parquet file
-            print("generating qa set")
+            me.text(f"Content Size: {QA_CONTENT_SIZE}")
+            me.input(
+                label="Content Size",
+                on_input=set_content_size,
+                type="number",
+            )
+            me.text(f"Number of questions per content: {QA_QUESTION_NUM_PER_CONTENT}")
+            me.input(
+                label="Number of questions per content",
+                on_input=set_num_questions,
+                type="number",
+            )
+            me.text("Current QA Prompt")
+            me.native_textarea(
+                value=QA_PROMPT,
+                readonly=True,
+                style=me.Style(width="100%", height="100%"),
+            )
+            me.textarea(
+                label="New QA Prompt",
+                on_input=set_qa_prompt,
+                style=me.Style(width="100%", height="40%"),
+            )
+            me.text(f"QA Temperature: {QA_TEMPERATURE}")
+            me.input(
+                label="QA Temperature",
+                on_input=set_qa_temperature,
+                type="number",
+            )
+            me.button(
+                "Generate Evaluation Set",
+                color="primary",
+                type="flat",
+                on_click=generate_eval_click,
+                style=me.Style(margin=me.Margin.all(7), display="block"),
+            )
         else:
             qa_set_df = pd.read_parquet(EVALUATION_SET_PATH)
             QA_SET_JSON = qa_set_df.to_json(orient="records", indent=4)
@@ -133,31 +256,28 @@ def eval_create_page():
         corpus_df = pd.read_parquet(VECTOR_STORE_PATH)
         CORPUS_JSON = corpus_df.to_json(orient="records", indent=4)
 
-    me.text(
-        text="Evaluation Set --------------------------- Corpus Data",
-        type="headline-4",
-        style=me.Style(display="inline"),
-    )
-    with me.box(
-        style=me.Style(
-            padding=me.Padding.all(10),
-            height="95vh",
-        )
-    ):
+    if QA_SET_JSON is not None:
+        me.text("Evaluation Set", type="headline-4")
+        # with me.box(
+        #     style=me.Style(
+        #         padding=me.Padding.all(10),
+        #         height="95vh",
+        #     )
+        # ):
         me.native_textarea(
             placeholder="Eval Set Data",
             value=QA_SET_JSON,
-            style=me.Style(width="48vw", height="100%"),
+            style=me.Style(width="100%", height="100%"),
             on_input=on_input_qa_data,
             key="qa_data",
         )
-        me.native_textarea(
-            placeholder="Vectorized Corpus Data",
-            value=CORPUS_JSON,
-            style=me.Style(width="48vw", height="100%"),
-            readonly=True,
-            key="qa_corpus",
-        )
+        # me.native_textarea(
+        #     placeholder="Vectorized Corpus Data",
+        #     value=CORPUS_JSON,
+        #     style=me.Style(width="48vw", height="100%"),
+        #     readonly=True,
+        #     key="qa_corpus",
+        # )
         me.button(
             "Save",
             color="primary",
