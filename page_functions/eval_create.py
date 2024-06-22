@@ -66,4 +66,6 @@ def generate_default_qa_set(
         output_filepath="data/qa.parquet",
         upsert=True,
     )
+    qa_df = qa_df.drop("retrieval_gt", axis=1)
+    qa_df.to_parquet("data/qa.parquet")
     return qa_df.to_json(indent=4, orient="records")

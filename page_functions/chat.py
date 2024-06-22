@@ -7,7 +7,7 @@ co = cohere.Client(os.getenv("COHERE_API_KEY"))
 
 
 class Chatbot:
-    def __init__(self, vectorstore):
+    def __init__(self, vectorstore, preamble=None, temperature=None, model=None):
         """
         Initializes an instance of the Chatbot class.
 
@@ -16,6 +16,9 @@ class Chatbot:
 
         """
         self.vectorstore = vectorstore
+        self.preamble = preamble
+        self.temperature = temperature
+        self.model = model
         self.conversation_id = str(uuid.uuid4())
 
     def run(self, message):
@@ -23,29 +26,38 @@ class Chatbot:
         Runs the chatbot application.
 
         """
+        documents = []
         response = co.chat(message=message, search_queries_only=True)
         if response.search_queries:
             print("Retrieving information...", end="")
 
             # Retrieve document chunks for each query
-            documents = []
             for query in response.search_queries:
                 documents.extend(self.vectorstore.retrieve(query.text))
+
+            if self.model:
+                model = self.model
+            else:
+                model = "command-r"
 
             # Use document chunks to respond
             response = co.chat_stream(
                 message=message,
-                model="command-r",
+                model=model,
                 documents=documents,
                 conversation_id=self.conversation_id,
+                temperature=self.temperature,
+                preamble=self.preamble,
             )
 
         # If there is no search query, directly respond
         else:
             response = co.chat_stream(
                 message=message,
-                model="command-r",
+                model=model,
                 conversation_id=self.conversation_id,
+                temperature=self.temperature,
+                preamble=self.preamble,
             )
 
         citations = []
@@ -61,8 +73,8 @@ class Chatbot:
             elif event.event_type == "search-results":
                 cited_documents = event.documents
 
-        return " ".join(response_str)
+        return " ".join(response_str), documents
 
 
-def create_rag_model(vectorstore):
-    return Chatbot(vectorstore)
+def create_rag_model(vectorstore, preamble=None, temperature=None, model=None):
+    return Chatbot(vectorstore, preamble, temperature, model)

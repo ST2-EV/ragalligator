@@ -7,14 +7,20 @@ import pandas as pd
 
 from page_functions.chat import create_rag_model
 from page_functions.eval_create import generate_default_qa_set
+from page_functions.eval_run import run_evaluation
 from page_functions.vectorstore import create_vectorstore
 
 RAG_MODEL = None
 VECTOR_STORE = None
 QA_SET_JSON = None
 CORPUS_JSON = None
+RAGAS_METRICS = None
 VECTOR_STORE_PATH = "data/corpus.parquet"
 EVALUATION_SET_PATH = "data/qa.parquet"
+
+CONFIG_PREAMBLE = None
+CONFIG_TEMPERATURE = None
+CONFIG_MODEL = "command-r"
 
 
 @me.stateclass
@@ -80,7 +86,7 @@ def vectorstore_page():
 
 def transform(input: str, history: list[mel.ChatMessage]):
     global RAG_MODEL
-    res = RAG_MODEL.run(input)
+    res, _ = RAG_MODEL.run(input)
     yield res + " "
 
 
@@ -91,6 +97,7 @@ def transform(input: str, history: list[mel.ChatMessage]):
 def chat_page():
     global RAG_MODEL, VECTOR_STORE
     if RAG_MODEL is None and VECTOR_STORE is not None:
+        print(VECTOR_STORE)
         RAG_MODEL = create_rag_model(VECTOR_STORE)
     mel.chat(transform, title="RAG Alligator Chat", bot_user="Bot")
 
@@ -165,7 +172,88 @@ def eval_create_page():
     title="RAG Alligator | Evaluation",
 )
 def eval_run_page():
+    global RAGAS_METRICS
     if QA_SET_JSON is None:
         me.text("Eval Set has not been created")
     else:
-        pass
+        if RAGAS_METRICS is None:
+            (
+                RAGAS_METRICS,
+                faithfulness_avg,
+                answer_correctness_avg,
+                answer_relevancy_avg,
+                context_recall_avg,
+                context_precision_avg,
+            ) = run_evaluation(RAG_MODEL, EVALUATION_SET_PATH)
+        me.text("Evaluation Metrics", type="headline-4")
+        me.text(f"Faithfulness: {round(faithfulness_avg, 2)}")
+        me.text(f"Answer Correctness: {round(answer_correctness_avg, 2)}")
+        me.text(f"Answer Relevancy: {round(answer_relevancy_avg, 2)}")
+        me.text(f"Context Recall: {round(context_recall_avg, 2)}")
+        me.text(f"Context Precision: {round(context_precision_avg, 2)}")
+        with me.box(style=me.Style(padding=me.Padding.all(10), width=500)):
+            me.table(
+                RAGAS_METRICS,
+                header=me.TableHeader(sticky=True),
+            )
+
+
+def on_selection_change(e: me.SelectSelectionChangeEvent):
+    global CONFIG_MODEL
+    CONFIG_MODEL = e.value
+
+
+def on_preamble_change(e: me.InputEvent):
+    global CONFIG_PREAMBLE
+    CONFIG_PREAMBLE = e.value
+
+
+def on_temp_input(e: me.InputEvent):
+    global CONFIG_TEMPERATURE
+    CONFIG_TEMPERATURE = e.value
+
+
+def save_config(event: me.ClickEvent):
+    global RAG_MODEL, CONFIG_PREAMBLE, CONFIG_TEMPERATURE, CONFIG_MODEL, VECTOR_STORE
+    print(VECTOR_STORE)
+    RAG_MODEL = create_rag_model(
+        VECTOR_STORE, CONFIG_PREAMBLE, float(CONFIG_TEMPERATURE), CONFIG_MODEL
+    )
+
+
+@me.page(
+    path="/config",
+    title="RAG Alligator | config",
+)
+def eval_run_page():
+    global CONFIG_PREAMBLE, CONFIG_TEMPERATURE, CONFIG_MODEL
+    me.text("Configuration", type="headline-4")
+    me.select(
+        label="Model",
+        options=[
+            me.SelectOption(label="command-r-plus", value="command-r-plus"),
+            me.SelectOption(label="command-r", value="command-r"),
+        ],
+        on_selection_change=on_selection_change,
+        value=CONFIG_MODEL,
+        style=me.Style(width=500),
+    )
+    me.text("Preamble")
+    if CONFIG_PREAMBLE is not None:
+        me.text(text=CONFIG_PREAMBLE)
+    me.native_textarea(
+        placeholder="preamble",
+        on_input=on_preamble_change,
+        min_rows=10,
+        style=me.Style(display="block", width=500, height=200),
+    )
+    if CONFIG_TEMPERATURE is not None:
+        me.text(f"Current Temperature: {CONFIG_TEMPERATURE}")
+    me.input(label="Temperature", on_input=on_temp_input)
+    me.button(
+        "Save",
+        color="primary",
+        type="flat",
+        style=me.Style(margin=me.Margin.all(7)),
+        on_click=save_config,
+    )
