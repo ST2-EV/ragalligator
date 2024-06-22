@@ -1,3 +1,4 @@
+import json
 import os
 from typing import List
 
@@ -17,6 +18,8 @@ CORPUS_JSON = None
 RAGAS_METRICS = None
 VECTOR_STORE_PATH = "data/corpus.parquet"
 EVALUATION_SET_PATH = "data/qa.parquet"
+
+CHAT_DOCUMENTS = None
 
 CONFIG_PREAMBLE = None
 CONFIG_TEMPERATURE = None
@@ -144,9 +147,22 @@ def vectorstore_page():
 
 
 def transform(input: str, history: list[mel.ChatMessage]):
-    global RAG_MODEL
-    res, _ = RAG_MODEL.run(input)
+    global RAG_MODEL, CHAT_DOCUMENTS
+    res, docs = RAG_MODEL.run(input)
+    CHAT_DOCUMENTS = json.dumps(docs, indent=4)
     yield res + " "
+
+
+def navigate_to_eval(event: me.ClickEvent):
+    me.navigate("/eval/create")
+
+
+def navigate_to_config(event: me.ClickEvent):
+    me.navigate("/config")
+
+
+def navigate_to_chat(event: me.ClickEvent):
+    me.navigate("/chat")
 
 
 @me.page(
@@ -158,7 +174,34 @@ def chat_page():
     if RAG_MODEL is None and VECTOR_STORE is not None:
         print(VECTOR_STORE)
         RAG_MODEL = create_rag_model(VECTOR_STORE)
-    mel.chat(transform, title="RAG Alligator Chat", bot_user="Bot")
+
+    with me.box(
+        style=me.Style(
+            display="flex", flex_direction="row", gap=12, justify_content="center"
+        )
+    ):
+        me.button("chat", disabled=True)
+        me.button("eval", on_click=navigate_to_eval)
+        me.button("config", on_click=navigate_to_config)
+
+    with me.box(
+        style=me.Style(display="flex", width="95vw", flex_direction="row", gap=10)
+    ):
+        with me.box(style=me.Style(flex_grow=1, flex_basis="30%")):
+            mel.chat(
+                transform,
+                title="RAG Alligator Chat",
+                bot_user="Bot",
+            )
+        if CHAT_DOCUMENTS:
+            with me.box(style=me.Style(flex_grow=1, height="95vh")):
+                me.text("Documents Retrieved for current message:", type="body-1")
+                me.native_textarea(
+                    value=CHAT_DOCUMENTS,
+                    style=me.Style(width="100%", height="95vh", flex_grow=1),
+                    readonly=True,
+                    autosize=True,
+                )
 
 
 def on_input_qa_data(e: me.InputEvent):
@@ -209,6 +252,16 @@ def generate_eval_click(event: me.ClickEvent):
 )
 def eval_create_page():
     global QA_SET_JSON, CORPUS_JSON
+
+    with me.box(
+        style=me.Style(
+            display="flex", flex_direction="row", gap=12, justify_content="center"
+        )
+    ):
+        me.button("chat", on_click=navigate_to_chat)
+        me.button("eval", disabled=True)
+        me.button("config", on_click=navigate_to_config)
+
     if QA_SET_JSON is None:
         me.text("Evaluation Set Creator", type="headline-4")
         if not os.path.exists(EVALUATION_SET_PATH):
@@ -285,6 +338,13 @@ def eval_create_page():
             on_click=save_qa_data,
             style=me.Style(margin=me.Margin.all(7)),
         )
+        me.button(
+            "Run Evaluation",
+            color="primary",
+            type="raised",
+            on_click=lambda e: me.navigate("/eval/run"),
+            style=me.Style(margin=me.Margin.all(7)),
+        )
 
 
 @me.page(
@@ -347,6 +407,16 @@ def save_config(event: me.ClickEvent):
 )
 def eval_run_page():
     global CONFIG_PREAMBLE, CONFIG_TEMPERATURE, CONFIG_MODEL
+
+    with me.box(
+        style=me.Style(
+            display="flex", flex_direction="row", gap=12, justify_content="center"
+        )
+    ):
+        me.button("chat", on_click=navigate_to_chat)
+        me.button("eval", on_click=navigate_to_eval)
+        me.button("config", disabled=True)
+
     me.text("Configuration", type="headline-4")
     me.select(
         label="Model",
