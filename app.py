@@ -353,6 +353,16 @@ def eval_create_page():
 )
 def eval_run_page():
     global RAGAS_METRICS
+
+    with me.box(
+        style=me.Style(
+            display="flex", flex_direction="row", gap=12, justify_content="center"
+        )
+    ):
+        me.button("chat", on_click=navigate_to_chat)
+        me.button("eval", disabled=True)
+        me.button("config", on_click=navigate_to_config)
+
     if QA_SET_JSON is None:
         me.text("Eval Set has not been created")
     else:
