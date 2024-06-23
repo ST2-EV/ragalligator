@@ -20,6 +20,7 @@ VECTOR_STORE_PATH = "data/corpus.parquet"
 EVALUATION_SET_PATH = "data/qa.parquet"
 
 CHAT_DOCUMENTS = None
+SEARCH_QUERIES = None
 
 CONFIG_PREAMBLE = None
 CONFIG_TEMPERATURE = None
@@ -147,9 +148,10 @@ def vectorstore_page():
 
 
 def transform(input: str, history: list[mel.ChatMessage]):
-    global RAG_MODEL, CHAT_DOCUMENTS
-    res, docs = RAG_MODEL.run(input)
+    global RAG_MODEL, CHAT_DOCUMENTS, SEARCH_QUERIES
+    res, docs, search_queries = RAG_MODEL.run(input)
     CHAT_DOCUMENTS = json.dumps(docs, indent=4)
+    SEARCH_QUERIES = search_queries
     yield res + " "
 
 
@@ -195,6 +197,14 @@ def chat_page():
             )
         if CHAT_DOCUMENTS:
             with me.box(style=me.Style(flex_grow=1, height="95vh")):
+                if SEARCH_QUERIES:
+                    me.text("Search Queries:", type="body-1")
+                    me.native_textarea(
+                        value=str(SEARCH_QUERIES),
+                        style=me.Style(width="100%", flex_grow=1),
+                        readonly=True,
+                        autosize=True,
+                    )
                 me.text("Documents Retrieved for current message:", type="body-1")
                 me.native_textarea(
                     value=CHAT_DOCUMENTS,

@@ -20,7 +20,7 @@ def run_evaluation(rag_model, qa_path="data/qa.parquet"):
     for qa in qa_dataset:
         print(qa)
         data_samples["question"].append(qa["query"])
-        answer, contexts_dict = rag_model.run(qa["query"])
+        answer, contexts_dict, _ = rag_model.run(qa["query"])
         contexts = [context["text"] for context in contexts_dict]
         data_samples["answer"].append(answer)
         data_samples["contexts"].append(contexts)

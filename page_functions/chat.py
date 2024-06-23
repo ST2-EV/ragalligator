@@ -27,10 +27,11 @@ class Chatbot:
 
         """
         documents = []
+        search_queries = []
         response = co.chat(message=message, search_queries_only=True)
         if response.search_queries:
             print("Retrieving information...", end="")
-
+            search_queries = response.search_queries
             # Retrieve document chunks for each query
             for query in response.search_queries:
                 documents.extend(self.vectorstore.retrieve(query.text))
@@ -73,7 +74,7 @@ class Chatbot:
             elif event.event_type == "search-results":
                 cited_documents = event.documents
 
-        return " ".join(response_str), documents
+        return " ".join(response_str), documents, search_queries
 
 
 def create_rag_model(vectorstore, preamble=None, temperature=None, model=None):
