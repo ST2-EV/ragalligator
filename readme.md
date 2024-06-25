@@ -18,7 +18,11 @@ cd ragalligator
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
+export COHERE_API_KEY=...
+export OPENAI_API_KEY=sk-...
 ```
+
+It uses cohere for the rag model and openai to run the evals.
 
 # Run
 
