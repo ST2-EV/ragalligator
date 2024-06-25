@@ -13,7 +13,7 @@ It's very easy to build an impressive looking demo but hard to build a useful ap
 # Installation
 
 ```
-git clone
+git clone git@github.com:ST2-EV/ragalligator.git
 cd ragalligator
 python3 -m venv venv
 source venv/bin/activate
