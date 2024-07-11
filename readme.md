@@ -1,4 +1,4 @@
-# RAG Alligator - Alpha
+# RAG Alligator - Alpha [WIP]
 
 A simple ui tool to get a baseline model and evaluation set for a RAG application.
 
